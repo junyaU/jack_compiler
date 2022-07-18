@@ -24,5 +24,7 @@ func main() {
 
 	defer analyzer.Close()
 
+	jack_compiler.NewTokenizer(analyzer.Files()[0])
+
 	fmt.Println("compile success")
 }
