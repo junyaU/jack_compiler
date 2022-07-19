@@ -1,6 +1,6 @@
 package jack_compiler
 
-type KeywordType int
+type KeywordType uint8
 
 const (
 	CLASS KeywordType = iota + 1
@@ -51,5 +51,5 @@ func (t KeywordType) String() string {
 		"THIS",
 	}
 
-	return strs[t+1]
+	return strs[t-1]
 }
