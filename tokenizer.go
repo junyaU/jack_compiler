@@ -144,8 +144,16 @@ func NewTokenizer(f io.Reader) *Tokenizer {
 	return tokenizer
 }
 
+func (t Tokenizer) Tokens() []string {
+	return t.tokens
+}
+
 func (t Tokenizer) HasMoreTokens() bool {
 	return len(t.tokens) > t.currentLine
+}
+
+func (t Tokenizer) CurrentToken() string {
+	return t.tokens[t.currentLine]
 }
 
 func (t *Tokenizer) Advance() {
@@ -160,26 +168,28 @@ func (t Tokenizer) TokenType() (TokenType, error) {
 
 	case "{", "}", "(", ")", "[", "]", ".", ",", ";", "+", "-", "*", "/", "&", "|", "<", ">", "=", "~":
 		return SYMBOL, nil
+
+	default:
+		currentToken := t.tokens[t.currentLine]
+		if currentToken[:1] == string('"') && currentToken[len(currentToken)-1:] == string('"') {
+			return STRING_CONST, nil
+		}
+
+		tokenNum, err := strconv.Atoi(currentToken)
+		if err == nil && 0 <= tokenNum && tokenNum <= 32767 {
+			return INT_CONST, nil
+		}
+
+		if _, err := strconv.Atoi(currentToken[:1]); err != nil {
+			return IDENTIFIER, nil
+		}
+
+		return 0, errors.New("no applicable type for this token")
 	}
 
-	currentToken := t.tokens[t.currentLine]
-	if currentToken[:1] == string('"') && currentToken[len(currentToken)-1:] == string('"') {
-		return STRING_CONST, nil
-	}
-
-	tokenNum, err := strconv.Atoi(currentToken)
-	if err == nil && 0 <= tokenNum && tokenNum <= 32767 {
-		return INT_CONST, nil
-	}
-
-	if _, err := strconv.Atoi(currentToken[:1]); err != nil {
-		return IDENTIFIER, nil
-	}
-
-	return 0, errors.New("no applicable type for this token")
 }
 
-func (t Tokenizer) keyword() (KeywordType, error) {
+func (t Tokenizer) Keyword() (KeywordType, error) {
 	switch t.tokens[t.currentLine] {
 	case "class":
 		return CLASS, nil

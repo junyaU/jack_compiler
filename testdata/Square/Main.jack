@@ -24,7 +24,6 @@ class Main {
         if (false) {
             // let s = "string constant";
             let s = "string constant" + "aa" + "string constant";
-            01234567890123456789012345678
             let s = null;
             let a[1] = a[2];
         }
