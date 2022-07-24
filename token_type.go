@@ -11,6 +11,6 @@ const (
 )
 
 func (t TokenType) String() string {
-	strs := [...]string{"KEYWORD", "SYMBOL", "IDENTIFIER", "INT_CONST", "STRING_CONST"}
+	strs := [...]string{"keyword", "symbol", "identifier", "intConst", "stringConst"}
 	return strs[t-1]
 }
