@@ -33,7 +33,7 @@ func main() {
 
 	t := jack_compiler.NewTokenizer(analyzer.Files()[0])
 
-	e.CompileClass(t)
+	e.Compile(t)
 
 	if err := e.Write(); err != nil {
 		log.Println(err)

@@ -24,53 +24,35 @@ func NewComplicationEngine(sourceName string) (*ComplicationEngine, error) {
 	}, nil
 }
 
-func (e *ComplicationEngine) CompileClass(t *Tokenizer) {
+func (e *ComplicationEngine) Compile(t *Tokenizer) {
 	class := map[string]interface{}{}
 	e.body["class"] = class
 
-	var i int
 	for t.HasMoreTokens() {
-		i++
 		tokenType, _ := t.TokenType()
-		tokenTypeVal := tokenType.String()
-
 		if tokenType == KEYWORD {
 			keyword, _ := t.Keyword()
 			switch keyword {
 			case STATIC, FIELD:
-				e.CompileClassVarDec(t)
+				e.CompileClassVarDec(t, class)
 				continue
 			case CONSTRUCTOR, FUNCTION, METHOD, VOID:
-				e.CompileSubroutine(t, i)
+				e.CompileSubroutine(t, class)
 			}
 		}
 
-		if _, ok := class[tokenType.String()]; ok {
-			tokenTypeVal = tokenTypeVal + "_" + strconv.Itoa(i)
-		}
-
-		class[tokenTypeVal] = t.CurrentToken()
+		class[t.MakeTokenKey()] = t.CurrentToken()
 
 		t.Advance()
 	}
 }
 
-func (e *ComplicationEngine) CompileClassVarDec(t *Tokenizer) {
+func (e *ComplicationEngine) CompileClassVarDec(t *Tokenizer, field map[string]interface{}) {
 	target := map[string]interface{}{}
-	classElement := e.body["class"].(map[string]interface{})
-	classElement["classVarDec"] = target
+	field["classVarDec"] = target
 
-	var i int
 	for t.HasMoreTokens() {
-		i++
-
-		tokenType, _ := t.TokenType()
-		tokenTypeVal := tokenType.String()
-		if _, ok := target[tokenType.String()]; ok {
-			tokenTypeVal = tokenTypeVal + "_" + strconv.Itoa(i)
-		}
-
-		target[tokenTypeVal] = t.CurrentToken()
+		target[t.MakeTokenKey()] = t.CurrentToken()
 		if t.CurrentToken() == ";" {
 			return
 		}
@@ -79,41 +61,31 @@ func (e *ComplicationEngine) CompileClassVarDec(t *Tokenizer) {
 	}
 }
 
-func (e *ComplicationEngine) CompileSubroutine(t *Tokenizer, i int) {
-	target := map[string]interface{}{}
-	classElement := e.body["class"].(map[string]interface{})
-
+func (e *ComplicationEngine) CompileSubroutine(t *Tokenizer, field map[string]interface{}) {
 	key := "subroutineDec"
-	if _, ok := classElement[key]; ok {
-		key = key + strconv.Itoa(i)
+	if _, ok := field[key]; ok {
+		key = key + strconv.Itoa(t.currentLine)
 	}
 
-	classElement[key] = target
+	target := map[string]interface{}{}
+	field[key] = target
 
-	var index int
 	var isLoadParameter bool
 	for t.HasMoreTokens() {
-		index++
+		target[t.MakeTokenKey()] = t.CurrentToken()
 
-		tokenType, _ := t.TokenType()
-		tokenTypeVal := tokenType.String()
-		if _, ok := target[tokenTypeVal]; ok {
-			tokenTypeVal = tokenTypeVal + "_" + strconv.Itoa(i)
-		}
-		target[tokenTypeVal] = t.CurrentToken()
-
-		if target[tokenTypeVal] == "}" {
+		if t.CurrentToken() == "}" {
 			return
 		}
 
 		t.Advance()
 
-		if target[tokenTypeVal] == "(" && !isLoadParameter {
+		if t.CurrentToken() == "(" && !isLoadParameter {
 			e.CompileParameterList(t, target)
 			isLoadParameter = true
 		}
 
-		if target[tokenTypeVal] == "{" {
+		if t.CurrentToken() == "{" {
 			e.CompileSubroutineBody(t, target)
 		}
 	}
@@ -123,24 +95,24 @@ func (e *ComplicationEngine) CompileSubroutineBody(t *Tokenizer, subroutineField
 	target := map[string]interface{}{}
 	subroutineField["subroutineBody"] = target
 
-	var index int
 	for t.HasMoreTokens() {
 		if t.CurrentToken() == "}" {
 			return
 		}
 
-		index++
-
 		tokenType, _ := t.TokenType()
 		keyword, _ := t.Keyword()
 		if tokenType == KEYWORD && keyword == VAR {
-			e.CompileVarDec(t, target, index)
+			e.CompileVarDec(t, target)
 			t.Advance()
 			continue
 		}
 
 		e.CompileStatements(t, target)
 
+		if t.CurrentToken() == "}" {
+			return
+		}
 		t.Advance()
 	}
 }
@@ -149,44 +121,30 @@ func (e *ComplicationEngine) CompileParameterList(t *Tokenizer, subroutineField 
 	target := map[string]interface{}{}
 	subroutineField["parameterList"] = target
 
-	var index int
 	for t.HasMoreTokens() {
 		if t.CurrentToken() == ")" {
 			return
 		}
 
-		index++
-		tokenType, _ := t.TokenType()
-		tokenTypeVal := tokenType.String()
-		if _, ok := target[tokenType.String()]; ok {
-			tokenTypeVal = tokenTypeVal + "_" + strconv.Itoa(index)
-		}
-		target[tokenTypeVal] = t.CurrentToken()
-
+		target[t.MakeTokenKey()] = t.CurrentToken()
 		t.Advance()
 	}
 }
 
-func (e *ComplicationEngine) CompileVarDec(t *Tokenizer, subroutineField map[string]interface{}, i int) {
+func (e *ComplicationEngine) CompileVarDec(t *Tokenizer, subroutineField map[string]interface{}) {
 	key := "varDec"
 	if _, ok := subroutineField[key]; ok {
-		key = key + strconv.Itoa(i)
+		key = key + strconv.Itoa(t.currentLine)
 	}
+
 	target := map[string]interface{}{}
 	subroutineField[key] = target
 
-	var index int
 	for t.HasMoreTokens() {
-		index++
+		target[t.MakeTokenKey()] = t.CurrentToken()
 
 		tokenType, _ := t.TokenType()
-		tokenTypeVal := tokenType.String()
-		if _, ok := target[tokenType.String()]; ok {
-			tokenTypeVal = tokenTypeVal + "_" + strconv.Itoa(index)
-		}
-		target[tokenTypeVal] = t.CurrentToken()
-
-		if target[tokenTypeVal] == ";" {
+		if target[tokenType.String()] == ";" {
 			return
 		}
 
@@ -198,10 +156,7 @@ func (e *ComplicationEngine) CompileStatements(t *Tokenizer, subroutineBodyField
 	target := map[string]interface{}{}
 	subroutineBodyField["statements"] = target
 
-	var index int
 	for t.HasMoreTokens() {
-		index++
-
 		if t.CurrentToken() == "}" {
 			return
 		}
@@ -211,7 +166,7 @@ func (e *ComplicationEngine) CompileStatements(t *Tokenizer, subroutineBodyField
 		case WHILE:
 		case IF:
 		case LET:
-			e.CompileLet(t, target, index)
+			e.CompileLet(t, target)
 		case DO:
 		case RETURN:
 		}
@@ -224,31 +179,33 @@ func (e *ComplicationEngine) CompileDo() error {
 	return nil
 }
 
-func (e *ComplicationEngine) CompileLet(t *Tokenizer, statementsField map[string]interface{}, i int) {
+func (e *ComplicationEngine) CompileLet(t *Tokenizer, statementsField map[string]interface{}) {
 	key := "letStatement"
 	if _, ok := statementsField[key]; ok {
-		key = key + strconv.Itoa(i)
+		key = key + strconv.Itoa(t.currentLine)
 	}
 
 	target := map[string]interface{}{}
 	statementsField[key] = target
 
-	var index int
 	for t.HasMoreTokens() {
-		index++
-		tokenType, _ := t.TokenType()
-		tokenTypeVal := tokenType.String()
-		if _, ok := target[tokenType.String()]; ok {
-			tokenTypeVal = tokenTypeVal + "_" + strconv.Itoa(index)
-		}
-		target[tokenTypeVal] = t.CurrentToken()
+		target[t.MakeTokenKey()] = t.CurrentToken()
 
+		tokenType, _ := t.TokenType()
 		switch tokenType {
 		case SYMBOL:
 			switch t.CurrentToken() {
 			case "[", "=":
-				//e.CompileExpression()
+				target[t.MakeTokenKey()] = t.CurrentToken()
+				t.Advance()
+				e.CompileExpression(t, target, false)
 			}
+		}
+
+		if t.CurrentToken() == ";" {
+			target[t.MakeTokenKey()] = t.CurrentToken()
+			t.Advance()
+			return
 		}
 
 		t.Advance()
@@ -267,39 +224,68 @@ func (e *ComplicationEngine) CompileIf() error {
 	return nil
 }
 
-func (e *ComplicationEngine) CompileExpression(t *Tokenizer, field map[string]interface{}, i int) {
+func (e *ComplicationEngine) CompileExpression(t *Tokenizer, field map[string]interface{}, isRecursion bool) {
 	key := "expression"
 	if _, ok := field[key]; ok {
-		key = key + strconv.Itoa(i)
+		key = key + strconv.Itoa(t.currentLine)
 	}
 
 	target := map[string]interface{}{}
 	field[key] = target
 
-	var index int
 	for t.HasMoreTokens() {
-		if t.CurrentToken() == ";" {
+		e.CompileTerm(t, target, isRecursion)
+
+		if t.CurrentToken() == ";" || t.CurrentToken() == ")" || t.CurrentToken() == "]" {
 			return
 		}
-
-		e.CompileTerm(t, target, index)
 
 		t.Advance()
 	}
 }
 
-func (e *ComplicationEngine) CompileTerm(t *Tokenizer, field map[string]interface{}, i int) {
+func (e *ComplicationEngine) CompileTerm(t *Tokenizer, field map[string]interface{}, isRecursion bool) {
 	key := "term"
 	if _, ok := field[key]; ok {
-		key = key + strconv.Itoa(i)
+		key = key + strconv.Itoa(t.currentLine)
 	}
 
 	target := map[string]interface{}{}
 	field[key] = target
 
 	for t.HasMoreTokens() {
+		if t.CurrentToken() == ";" {
+			return
+		}
+
+		tokenType, _ := t.TokenType()
+		switch tokenType {
+		case KEYWORD:
+			switch t.CurrentToken() {
+			case "true", "false", "null", "this":
+				target["KeywordConstant"] = t.CurrentToken()
+			}
+
+		case SYMBOL:
+			switch t.CurrentToken() {
+			case "[", "(":
+				target[t.MakeTokenKey()] = t.CurrentToken()
+				t.Advance()
+				e.CompileExpression(t, target, true)
+
+			case "]", ")":
+				if !isRecursion {
+					target[t.MakeTokenKey()] = t.CurrentToken()
+				}
+			default:
+				target[t.MakeTokenKey()] = t.CurrentToken()
+			}
+		default:
+			target[t.MakeTokenKey()] = t.CurrentToken()
+		}
 
 		t.Advance()
+
 	}
 }
 

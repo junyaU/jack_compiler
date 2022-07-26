@@ -144,10 +144,6 @@ func NewTokenizer(f io.Reader) *Tokenizer {
 	return tokenizer
 }
 
-func (t Tokenizer) Tokens() []string {
-	return t.tokens
-}
-
 func (t Tokenizer) HasMoreTokens() bool {
 	return len(t.tokens) > t.currentLine
 }
@@ -158,6 +154,11 @@ func (t Tokenizer) CurrentToken() string {
 
 func (t *Tokenizer) Advance() {
 	t.currentLine++
+}
+
+func (t Tokenizer) MakeTokenKey() string {
+	tokenType, _ := t.TokenType()
+	return tokenType.String() + "_" + strconv.Itoa(t.currentLine)
 }
 
 func (t Tokenizer) TokenType() (TokenType, error) {
