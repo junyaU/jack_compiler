@@ -189,23 +189,19 @@ func (e *ComplicationEngine) CompileLet(t *Tokenizer, statementsField map[string
 	statementsField[key] = target
 
 	for t.HasMoreTokens() {
-		target[t.MakeTokenKey()] = t.CurrentToken()
-
-		tokenType, _ := t.TokenType()
-		switch tokenType {
-		case SYMBOL:
-			switch t.CurrentToken() {
-			case "[", "=":
-				target[t.MakeTokenKey()] = t.CurrentToken()
-				t.Advance()
-				e.CompileExpression(t, target, false)
-			}
-		}
-
-		if t.CurrentToken() == ";" {
+		switch t.CurrentToken() {
+		case "[", "=":
 			target[t.MakeTokenKey()] = t.CurrentToken()
 			t.Advance()
+			e.CompileExpression(t, target, false)
+			target[t.MakeTokenKey()] = t.CurrentToken()
+			fallthrough
+
+		case ";":
 			return
+
+		default:
+			target[t.MakeTokenKey()] = t.CurrentToken()
 		}
 
 		t.Advance()
@@ -236,7 +232,8 @@ func (e *ComplicationEngine) CompileExpression(t *Tokenizer, field map[string]in
 	for t.HasMoreTokens() {
 		e.CompileTerm(t, target, isRecursion)
 
-		if t.CurrentToken() == ";" || t.CurrentToken() == ")" || t.CurrentToken() == "]" {
+		switch t.CurrentToken() {
+		case ";", ")", "]":
 			return
 		}
 
@@ -254,38 +251,32 @@ func (e *ComplicationEngine) CompileTerm(t *Tokenizer, field map[string]interfac
 	field[key] = target
 
 	for t.HasMoreTokens() {
-		if t.CurrentToken() == ";" {
+		switch t.CurrentToken() {
+		case ";":
+			return
+		case "true", "false", "null", "this":
+			target["KeywordConstant"] = t.CurrentToken()
+
+		case "[", "(":
+			target[t.MakeTokenKey()] = t.CurrentToken()
+			t.Advance()
+			e.CompileExpression(t, target, true)
+			fallthrough
+
+		case ")":
+			if !isRecursion {
+				target[t.MakeTokenKey()] = t.CurrentToken()
+				t.Advance()
+			}
+			return
+
+		case "]":
 			return
 		}
 
-		tokenType, _ := t.TokenType()
-		switch tokenType {
-		case KEYWORD:
-			switch t.CurrentToken() {
-			case "true", "false", "null", "this":
-				target["KeywordConstant"] = t.CurrentToken()
-			}
-
-		case SYMBOL:
-			switch t.CurrentToken() {
-			case "[", "(":
-				target[t.MakeTokenKey()] = t.CurrentToken()
-				t.Advance()
-				e.CompileExpression(t, target, true)
-
-			case "]", ")":
-				if !isRecursion {
-					target[t.MakeTokenKey()] = t.CurrentToken()
-				}
-			default:
-				target[t.MakeTokenKey()] = t.CurrentToken()
-			}
-		default:
-			target[t.MakeTokenKey()] = t.CurrentToken()
-		}
+		target[t.MakeTokenKey()] = t.CurrentToken()
 
 		t.Advance()
-
 	}
 }
 
