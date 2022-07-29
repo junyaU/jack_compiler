@@ -152,9 +152,9 @@ func (e *ComplicationEngine) CompileVarDec(t *Tokenizer, subroutineField map[str
 	}
 }
 
-func (e *ComplicationEngine) CompileStatements(t *Tokenizer, subroutineBodyField map[string]interface{}) {
+func (e *ComplicationEngine) CompileStatements(t *Tokenizer, field map[string]interface{}) {
 	target := map[string]interface{}{}
-	subroutineBodyField["statements"] = target
+	field["statements"] = target
 
 	for t.HasMoreTokens() {
 		if t.CurrentToken() == "}" {
@@ -164,10 +164,12 @@ func (e *ComplicationEngine) CompileStatements(t *Tokenizer, subroutineBodyField
 		keyword, _ := t.Keyword()
 		switch keyword {
 		case WHILE:
+			e.CompileWhile(t, target)
 		case IF:
 		case LET:
 			e.CompileLet(t, target)
 		case DO:
+			e.CompileDo(t, target)
 		case RETURN:
 		}
 
@@ -175,8 +177,32 @@ func (e *ComplicationEngine) CompileStatements(t *Tokenizer, subroutineBodyField
 	}
 }
 
-func (e *ComplicationEngine) CompileDo() error {
-	return nil
+func (e *ComplicationEngine) CompileDo(t *Tokenizer, field map[string]interface{}) {
+	key := "doStatement"
+	if _, ok := field[key]; ok {
+		key = key + strconv.Itoa(t.currentLine)
+	}
+
+	target := map[string]interface{}{}
+	field[key] = target
+
+	for t.HasMoreTokens() {
+		switch t.CurrentToken() {
+		case "(":
+			target[t.MakeTokenKey()] = t.CurrentToken()
+			t.Advance()
+			e.CompileExpressionList(t, target)
+		}
+
+		target[t.MakeTokenKey()] = t.CurrentToken()
+
+		if t.CurrentToken() == ";" {
+			return
+		}
+
+		t.Advance()
+	}
+
 }
 
 func (e *ComplicationEngine) CompileLet(t *Tokenizer, statementsField map[string]interface{}) {
@@ -194,22 +220,48 @@ func (e *ComplicationEngine) CompileLet(t *Tokenizer, statementsField map[string
 			target[t.MakeTokenKey()] = t.CurrentToken()
 			t.Advance()
 			e.CompileExpression(t, target, false)
-			target[t.MakeTokenKey()] = t.CurrentToken()
-			fallthrough
+		}
 
-		case ";":
+		target[t.MakeTokenKey()] = t.CurrentToken()
+
+		if t.CurrentToken() == ";" {
 			return
-
-		default:
-			target[t.MakeTokenKey()] = t.CurrentToken()
 		}
 
 		t.Advance()
 	}
 }
 
-func (e *ComplicationEngine) CompileWhile() error {
-	return nil
+func (e *ComplicationEngine) CompileWhile(t *Tokenizer, field map[string]interface{}) {
+	key := "whileStatement"
+	if _, ok := field[key]; ok {
+		key = key + strconv.Itoa(t.currentLine)
+	}
+
+	target := map[string]interface{}{}
+	field[key] = target
+
+	for t.HasMoreTokens() {
+		switch t.CurrentToken() {
+		case "(":
+			target[t.MakeTokenKey()] = t.CurrentToken()
+			t.Advance()
+			e.CompileExpression(t, target, true)
+
+		case "{":
+			target[t.MakeTokenKey()] = t.CurrentToken()
+			t.Advance()
+			e.CompileStatements(t, target)
+		}
+
+		target[t.MakeTokenKey()] = t.CurrentToken()
+
+		if t.CurrentToken() == "}" {
+			return
+		}
+
+		t.Advance()
+	}
 }
 
 func (e *ComplicationEngine) CompileReturn() error {
@@ -261,16 +313,17 @@ func (e *ComplicationEngine) CompileTerm(t *Tokenizer, field map[string]interfac
 			target[t.MakeTokenKey()] = t.CurrentToken()
 			t.Advance()
 			e.CompileExpression(t, target, true)
-			fallthrough
+		}
 
-		case ")":
+		if t.CurrentToken() == ")" {
 			if !isRecursion {
 				target[t.MakeTokenKey()] = t.CurrentToken()
 				t.Advance()
 			}
 			return
+		}
 
-		case "]":
+		if t.CurrentToken() == "]" {
 			return
 		}
 
@@ -280,8 +333,31 @@ func (e *ComplicationEngine) CompileTerm(t *Tokenizer, field map[string]interfac
 	}
 }
 
-func (e *ComplicationEngine) CompileExpressionList() error {
-	return nil
+func (e *ComplicationEngine) CompileExpressionList(t *Tokenizer, field map[string]interface{}) {
+	key := "expressionList"
+	if _, ok := field[key]; ok {
+		key = key + strconv.Itoa(t.currentLine)
+	}
+
+	target := map[string]interface{}{}
+	field[key] = target
+
+	for t.HasMoreTokens() {
+		switch t.CurrentToken() {
+		case ",":
+			target[key] = t.CurrentToken()
+
+		default:
+			e.CompileExpression(t, target, true)
+		}
+
+		if t.CurrentToken() == ")" {
+			return
+		}
+
+		t.Advance()
+	}
+
 }
 
 func (e *ComplicationEngine) Write() error {
