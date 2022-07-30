@@ -3,6 +3,7 @@ package jack_compiler
 import (
 	"bytes"
 	"encoding/json"
+	"log"
 	"os"
 	"strconv"
 )
@@ -70,8 +71,18 @@ func (e *ComplicationEngine) CompileSubroutine(t *Tokenizer, field map[string]in
 	target := map[string]interface{}{}
 	field[key] = target
 
-	var isLoadParameter bool
 	for t.HasMoreTokens() {
+		if t.CurrentToken() == "(" {
+			target[t.MakeTokenKey()] = t.CurrentToken()
+			t.Advance()
+			e.CompileParameterList(t, target)
+		}
+
+		if t.CurrentToken() == "{" {
+			target[t.MakeTokenKey()] = t.CurrentToken()
+			e.CompileSubroutineBody(t, target)
+		}
+
 		target[t.MakeTokenKey()] = t.CurrentToken()
 
 		if t.CurrentToken() == "}" {
@@ -79,15 +90,6 @@ func (e *ComplicationEngine) CompileSubroutine(t *Tokenizer, field map[string]in
 		}
 
 		t.Advance()
-
-		if t.CurrentToken() == "(" && !isLoadParameter {
-			e.CompileParameterList(t, target)
-			isLoadParameter = true
-		}
-
-		if t.CurrentToken() == "{" {
-			e.CompileSubroutineBody(t, target)
-		}
 	}
 }
 
@@ -96,10 +98,6 @@ func (e *ComplicationEngine) CompileSubroutineBody(t *Tokenizer, subroutineField
 	subroutineField["subroutineBody"] = target
 
 	for t.HasMoreTokens() {
-		if t.CurrentToken() == "}" {
-			return
-		}
-
 		tokenType, _ := t.TokenType()
 		keyword, _ := t.Keyword()
 		if tokenType == KEYWORD && keyword == VAR {
@@ -113,6 +111,7 @@ func (e *ComplicationEngine) CompileSubroutineBody(t *Tokenizer, subroutineField
 		if t.CurrentToken() == "}" {
 			return
 		}
+
 		t.Advance()
 	}
 }
@@ -157,6 +156,9 @@ func (e *ComplicationEngine) CompileStatements(t *Tokenizer, field map[string]in
 	field["statements"] = target
 
 	for t.HasMoreTokens() {
+		if t.CurrentToken() == "{" {
+			log.Println("########")
+		}
 		if t.CurrentToken() == "}" {
 			return
 		}
@@ -171,6 +173,7 @@ func (e *ComplicationEngine) CompileStatements(t *Tokenizer, field map[string]in
 		case DO:
 			e.CompileDo(t, target)
 		case RETURN:
+			e.CompileReturn(t, target)
 		}
 
 		t.Advance()
@@ -264,8 +267,28 @@ func (e *ComplicationEngine) CompileWhile(t *Tokenizer, field map[string]interfa
 	}
 }
 
-func (e *ComplicationEngine) CompileReturn() error {
-	return nil
+func (e *ComplicationEngine) CompileReturn(t *Tokenizer, field map[string]interface{}) {
+	key := "returnStatement"
+	if _, ok := field[key]; ok {
+		key = key + strconv.Itoa(t.currentLine)
+	}
+
+	target := map[string]interface{}{}
+	field[key] = target
+
+	for t.HasMoreTokens() {
+		if t.CurrentToken() != "return" {
+			e.CompileExpression(t, target, false)
+		}
+
+		target[t.MakeTokenKey()] = t.CurrentToken()
+
+		if t.CurrentToken() == ";" {
+			return
+		}
+
+		t.Advance()
+	}
 }
 
 func (e *ComplicationEngine) CompileIf() error {
