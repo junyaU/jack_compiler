@@ -7,6 +7,7 @@ import (
 	"github.com/jack_compiler"
 	"log"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -25,19 +26,21 @@ func main() {
 
 	defer analyzer.Close()
 
-	e, err := jack_compiler.NewComplicationEngine(args[0])
-	if err != nil {
-		log.Println(err)
-		os.Exit(1)
-	}
+	for _, file := range analyzer.Files() {
+		t := jack_compiler.NewTokenizer(file)
 
-	t := jack_compiler.NewTokenizer(analyzer.Files()[0])
+		e, err := jack_compiler.NewComplicationEngine(file.Name()[:strings.Index(file.Name(), ".jack")])
+		if err != nil {
+			log.Println(err)
+			os.Exit(1)
+		}
 
-	e.Compile(t)
+		e.Compile(t)
 
-	if err := e.Write(); err != nil {
-		log.Println(err)
-		os.Exit(1)
+		if err := e.Write(); err != nil {
+			log.Println(err)
+			os.Exit(1)
+		}
 	}
 
 	fmt.Println("compile success")

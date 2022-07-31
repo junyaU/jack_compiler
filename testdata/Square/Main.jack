@@ -22,7 +22,7 @@ class Main {
         var String s;
         var Array a;
         if (false) {
-            // let s = "string constant";
+            let s = "string constant";
             let s = "string constant" + "aa" + "string constant";
             let s = null;
             let a[1] = a[2];
