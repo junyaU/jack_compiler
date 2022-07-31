@@ -3,7 +3,6 @@ package jack_compiler
 import (
 	"bytes"
 	"encoding/json"
-	"log"
 	"os"
 	"strconv"
 )
@@ -30,16 +29,14 @@ func (e *ComplicationEngine) Compile(t *Tokenizer) {
 	e.body["class"] = class
 
 	for t.HasMoreTokens() {
-		tokenType, _ := t.TokenType()
-		if tokenType == KEYWORD {
-			keyword, _ := t.Keyword()
-			switch keyword {
-			case STATIC, FIELD:
-				e.CompileClassVarDec(t, class)
-				continue
-			case CONSTRUCTOR, FUNCTION, METHOD, VOID:
-				e.CompileSubroutine(t, class)
-			}
+		switch t.CurrentToken() {
+		case STATIC.String(), FIELD.String():
+			e.CompileClassVarDec(t, class)
+			t.Advance()
+			continue
+
+		case CONSTRUCTOR.String(), FUNCTION.String(), METHOD.String(), VOID.String():
+			e.CompileSubroutine(t, class)
 		}
 
 		class[t.MakeTokenKey()] = t.CurrentToken()
@@ -54,6 +51,7 @@ func (e *ComplicationEngine) CompileClassVarDec(t *Tokenizer, field map[string]i
 
 	for t.HasMoreTokens() {
 		target[t.MakeTokenKey()] = t.CurrentToken()
+
 		if t.CurrentToken() == ";" {
 			return
 		}
@@ -72,22 +70,19 @@ func (e *ComplicationEngine) CompileSubroutine(t *Tokenizer, field map[string]in
 	field[key] = target
 
 	for t.HasMoreTokens() {
-		if t.CurrentToken() == "(" {
+		switch t.CurrentToken() {
+		case "(":
 			target[t.MakeTokenKey()] = t.CurrentToken()
 			t.Advance()
 			e.CompileParameterList(t, target)
-		}
+			continue
 
-		if t.CurrentToken() == "{" {
-			target[t.MakeTokenKey()] = t.CurrentToken()
+		case "{":
 			e.CompileSubroutineBody(t, target)
+			return
 		}
 
 		target[t.MakeTokenKey()] = t.CurrentToken()
-
-		if t.CurrentToken() == "}" {
-			return
-		}
 
 		t.Advance()
 	}
@@ -98,21 +93,19 @@ func (e *ComplicationEngine) CompileSubroutineBody(t *Tokenizer, subroutineField
 	subroutineField["subroutineBody"] = target
 
 	for t.HasMoreTokens() {
-		tokenType, _ := t.TokenType()
-		keyword, _ := t.Keyword()
-		if tokenType == KEYWORD && keyword == VAR {
+		switch t.CurrentToken() {
+		case "{":
+			target[t.MakeTokenKey()] = t.CurrentToken()
+			e.CompileStatements(t, target)
+			target[t.MakeTokenKey()] = t.CurrentToken()
+			t.Advance()
+			return
+
+		case VAR.String():
 			e.CompileVarDec(t, target)
 			t.Advance()
 			continue
 		}
-
-		e.CompileStatements(t, target)
-
-		if t.CurrentToken() == "}" {
-			return
-		}
-
-		t.Advance()
 	}
 }
 
@@ -156,24 +149,18 @@ func (e *ComplicationEngine) CompileStatements(t *Tokenizer, field map[string]in
 	field["statements"] = target
 
 	for t.HasMoreTokens() {
-		if t.CurrentToken() == "{" {
-			log.Println("########")
-		}
-		if t.CurrentToken() == "}" {
-			return
-		}
-
-		keyword, _ := t.Keyword()
-		switch keyword {
-		case WHILE:
+		switch t.CurrentToken() {
+		case WHILE.String():
 			e.CompileWhile(t, target)
-		case IF:
-		case LET:
+		case IF.String():
+		case LET.String():
 			e.CompileLet(t, target)
-		case DO:
+		case DO.String():
 			e.CompileDo(t, target)
-		case RETURN:
+		case RETURN.String():
 			e.CompileReturn(t, target)
+		case "}":
+			return
 		}
 
 		t.Advance()
@@ -277,7 +264,7 @@ func (e *ComplicationEngine) CompileReturn(t *Tokenizer, field map[string]interf
 	field[key] = target
 
 	for t.HasMoreTokens() {
-		if t.CurrentToken() != "return" {
+		if t.CurrentToken() != RETURN.String() {
 			e.CompileExpression(t, target, false)
 		}
 
@@ -291,8 +278,7 @@ func (e *ComplicationEngine) CompileReturn(t *Tokenizer, field map[string]interf
 	}
 }
 
-func (e *ComplicationEngine) CompileIf() error {
-	return nil
+func (e *ComplicationEngine) CompileIf() {
 }
 
 func (e *ComplicationEngine) CompileExpression(t *Tokenizer, field map[string]interface{}, isRecursion bool) {
@@ -329,7 +315,7 @@ func (e *ComplicationEngine) CompileTerm(t *Tokenizer, field map[string]interfac
 		switch t.CurrentToken() {
 		case ";":
 			return
-		case "true", "false", "null", "this":
+		case TRUE.String(), FALSE.String(), NULL.String(), THIS.String():
 			target["KeywordConstant"] = t.CurrentToken()
 
 		case "[", "(":
