@@ -259,9 +259,9 @@ func (e *ComplicationEngine) compileIf(t *Tokenizer, parent map[string]interface
 
 		if t.CurrentToken() == "}" {
 			field[t.MakeTokenKey()] = t.CurrentToken()
-			t.Advance()
 
-			if t.CurrentToken() == ELSE.String() {
+			if t.NextToken() == ELSE.String() {
+				t.Advance()
 				continue
 			}
 

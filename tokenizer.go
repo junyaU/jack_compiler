@@ -136,7 +136,9 @@ func NewTokenizer(f io.Reader) *Tokenizer {
 
 		for _, word := range extractStringConstant(text) {
 			for _, token := range extractTokens(word) {
-				tokenizer.tokens = append(tokenizer.tokens, token)
+				if token != "" {
+					tokenizer.tokens = append(tokenizer.tokens, token)
+				}
 			}
 		}
 	}
@@ -150,6 +152,10 @@ func (t Tokenizer) HasMoreTokens() bool {
 
 func (t Tokenizer) CurrentToken() string {
 	return t.tokens[t.currentLine]
+}
+
+func (t Tokenizer) NextToken() string {
+	return t.tokens[t.currentLine+1]
 }
 
 func (t *Tokenizer) Advance() {
